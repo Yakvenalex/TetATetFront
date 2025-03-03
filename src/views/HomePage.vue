@@ -3,9 +3,9 @@ import { ref } from 'vue';
 import SearchForm from '@/components/SearchForm.vue';
 import LoadingIndicator from '@/components/LoadingIndicator.vue';
 import ActionButtons from '@/components/ActionButtons.vue';
-import { useRouter } from 'vue-router'; // Импортируем useRouter
+import { useRouter } from 'vue-router';
 
-const router = useRouter(); // Используем useRouter
+const router = useRouter();
 const gender = ref('');
 const ageFrom = ref<number | null>(null);
 const ageTo = ref<number | null>(null);
@@ -36,18 +36,16 @@ const closeSearch = () => {
 </script>
 
 <template>
-    <div class="container">
-        <h1 class="title">Поиск Собеседника</h1>
-        <div class="content">
-            <SearchForm v-if="!isLoading" v-model:gender="gender" v-model:ageFrom="ageFrom" v-model:ageTo="ageTo"
-                @find="findCompanion" @close="closeSearch" />
+    <h1 class="title">Поиск Собеседника</h1>
+    <div class="content">
+        <SearchForm v-if="!isLoading" v-model:gender="gender" v-model:ageFrom="ageFrom" v-model:ageTo="ageTo"
+            @find="findCompanion" @close="closeSearch" />
 
-            <LoadingIndicator v-if="isLoading" message="Ищем подходящего собеседника...">
-                <ActionButtons primary-text="Назад" secondary-text="Закрыть" @primary-click="isLoading = false"
-                    @secondary-click="closeSearch" />
-            </LoadingIndicator>
-            <router-view />
-        </div>
+        <LoadingIndicator v-if="isLoading" message="Ищем подходящего собеседника...">
+            <ActionButtons primary-text="Назад" secondary-text="Закрыть" @primary-click="isLoading = false"
+                @secondary-click="closeSearch" />
+        </LoadingIndicator>
+        <router-view />
     </div>
 </template>
 

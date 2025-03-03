@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, nextTick } from 'vue';
 import { useRouter } from 'vue-router';
-
+import IconSend from '@/components/icons/IconSend.vue';
 const router = useRouter();
 const messages = ref<{ sender: string; text: string }[]>([]);
 const newMessage = ref('');
@@ -54,31 +54,31 @@ const closeChat = () => {
 </script>
 
 <template>
-    <div class="container">
-        <h1 class="text-3xl font-bold mb-8 text-center text-red-600">Чат с Собеседником</h1>
+    <h1 class="text-3xl font-bold mb-8 text-center text-red-600">Чат с Собеседником</h1>
 
-        <div id="chatContainer" class="chat-container">
-            <div v-for="(message, index) in messages" :key="index"
-                :class="['message-container', message.sender === 'Вы' ? 'sent' : 'received']">
-                <div class="message-sender">
-                    {{ message.sender }}:
-                </div>
-                <div class="message">
-                    {{ message.text }}
-                </div>
+    <div id="chatContainer" class="chat-container">
+        <div v-for="(message, index) in messages" :key="index"
+            :class="['message-container', message.sender === 'Вы' ? 'sent' : 'received']">
+            <div class="message-sender">
+                {{ message.sender }}:
+            </div>
+            <div class="message">
+                {{ message.text }}
             </div>
         </div>
+    </div>
 
-        <div class="message-input-area">
-            <input type="text" v-model="newMessage" @keyup.enter="sendMessage" class="message-input"
-                placeholder="Введите сообщение" />
-            <button class="send-button" @click="sendMessage">Отправить</button>
-        </div>
+    <div class="message-input-area">
+        <input type="text" v-model="newMessage" @keyup.enter="sendMessage" class="message-input"
+            placeholder="Введите сообщение" />
+        <button class="send-button" @click="sendMessage">
+            <IconSend />
+        </button>
+    </div>
 
-        <div class="chat-buttons">
-            <button class="btn-secondary" @click="changeInterlocutor">Другой собеседник</button>
-            <button class="btn-secondary" @click="closeChat">Закрыть</button>
-        </div>
+    <div class="chat-buttons">
+        <button class="btn-secondary" @click="changeInterlocutor">Другой собеседник</button>
+        <button class="btn-secondary" @click="closeChat">Закрыть</button>
     </div>
 </template>
 
@@ -191,6 +191,8 @@ select.form-control {
     flex-direction: column;
     background-color: #fff8f8;
     transition: background-color 0.3s ease;
+    min-height: 200px;
+    max-height: 400px;
 }
 
 .message-container {
@@ -260,13 +262,16 @@ select.form-control {
 }
 
 .send-button {
+    min-width: 44px;
+    height: 44px;
     background-color: #e53935;
     color: white;
-    padding: 0.7rem 1.5rem;
+    padding: 0.5rem;
     border-radius: 0.5rem;
     transition: background-color 0.3s ease, transform 0.2s ease, box-shadow 0.3s ease;
-    display: inline-block;
-    text-align: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     font-weight: 500;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
     cursor: pointer;
@@ -282,5 +287,70 @@ select.form-control {
     display: flex;
     justify-content: space-between;
     margin-top: 1rem;
+}
+
+/* Адаптивные стили для мобильных устройств */
+@media screen and (max-width: 640px) {
+    h1 {
+        font-size: 1.5rem;
+        margin-bottom: 1rem;
+    }
+
+    .chat-container {
+        max-height: 300px;
+        min-height: 150px;
+    }
+
+    .message {
+        padding: 0.5rem 0.75rem;
+        font-size: 0.9rem;
+        max-width: 85%;
+    }
+
+    .message-input-area {
+        gap: 0.5rem;
+    }
+
+    .message-input {
+        padding: 0.6rem;
+        font-size: 0.9rem;
+    }
+
+    .send-button {
+        min-width: 38px;
+        height: 38px;
+        padding: 0.3rem;
+    }
+
+    .chat-buttons {
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+
+    .btn-secondary {
+        width: 100%;
+        padding: 0.5rem 1rem;
+        margin-bottom: 0.5rem;
+    }
+}
+
+/* Дополнительные стили для очень маленьких экранов */
+@media screen and (max-width: 320px) {
+    .container {
+        padding: 1rem;
+    }
+
+    h1 {
+        font-size: 1.25rem;
+    }
+
+    .message-input {
+        padding: 0.5rem;
+    }
+
+    .send-button {
+        min-width: 34px;
+        height: 34px;
+    }
 }
 </style>
