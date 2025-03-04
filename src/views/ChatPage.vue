@@ -1,26 +1,91 @@
 <script setup lang="ts">
-import { ref, nextTick } from 'vue';
-import { useRouter } from 'vue-router';
+import { ref, onMounted, onUnmounted, nextTick } from 'vue';
+import { useRouter, useRoute } from 'vue-router';
 import IconSend from '@/components/icons/IconSend.vue';
+import { Centrifuge } from 'centrifuge';
+
 const router = useRouter();
+const route = useRoute();
+const token = route.query.token as string;
+const originalRoom = route.query.room as string;
+
+const room = originalRoom.replace('chat_room:', '');
+console.log(token);
+console.log(room);
+// Состояния
 const messages = ref<{ sender: string; text: string }[]>([]);
 const newMessage = ref('');
 
+// Инициализация Centrifuge
+const centrifuge = new Centrifuge('wss://mycentrifugo-yakvenalex.amvera.io/connection/websocket', {
+    token: token,
+});
+
+let sub: ReturnType<typeof centrifuge.newSubscription>;
+
+// Логирование событий соединения
+centrifuge
+    .on('connecting', (ctx) => {
+        console.log(`Connecting to Centrifuge: ${ctx.code}, ${ctx.reason}`);
+    })
+    .on('connected', (ctx) => {
+        console.log(`Connected to Centrifuge over ${ctx.transport}`);
+    })
+    .on('disconnected', (ctx) => {
+        console.log(`Disconnected from Centrifuge: ${ctx.code}, ${ctx.reason}`);
+    });
+
+// Функция для инициализации подписки
+const initializeSubscription = () => {
+    sub = centrifuge.newSubscription(room);
+
+    sub
+        .on('publication', (ctx) => {
+            const data = ctx.data;
+            receiveMessage(data.sender, data.message);
+            console.log('Received publication:', data);
+        })
+        .on('subscribing', (ctx) => {
+            console.log(`Subscribing to channel ${room}: ${ctx.code}, ${ctx.reason}`);
+        })
+        .on('subscribed', (ctx) => {
+            console.log(`Subscribed to channel ${room}:`, ctx);
+        })
+        .on('unsubscribed', (ctx) => {
+            console.log(`Unsubscribed from channel ${room}: ${ctx.code}, ${ctx.reason}`);
+        });
+
+    sub.subscribe();
+};
+
+// Подключение к Centrifugo и инициализация подписки при монтировании компонента
+onMounted(() => {
+    centrifuge.connect();
+    initializeSubscription();
+});
+
+// Отключение от Centrifugo и отписка от канала при уничтожении компонента
+onUnmounted(() => {
+    if (sub) {
+        sub.unsubscribe();
+    }
+    centrifuge.disconnect();
+});
+
 // Функция отправки сообщения
-const sendMessage = () => {
+const sendMessage = async () => {
     if (newMessage.value.trim() !== '') {
+        await centrifuge.publish(room, {
+            sender: 'Вы',
+            message: newMessage.value.trim(),
+        });
+
         messages.value.push({ sender: 'Вы', text: newMessage.value.trim() });
         newMessage.value = '';
 
-        // Прокрутка чата вниз
         nextTick(() => {
             scrollChatToBottom();
         });
-
-        // Симуляция ответа собеседника
-        setTimeout(() => {
-            receiveMessage('Собеседник', 'Привет! Как дела?');
-        }, 1000);
     }
 };
 
@@ -28,7 +93,6 @@ const sendMessage = () => {
 const receiveMessage = (sender: string, message: string) => {
     messages.value.push({ sender, text: message });
 
-    // Прокрутка чата вниз
     nextTick(() => {
         scrollChatToBottom();
     });
@@ -51,6 +115,49 @@ const changeInterlocutor = () => {
 const closeChat = () => {
     alert('Чат закрыт');
 };
+
+// Отправка сообщения на сервер (если необходимо)
+const sendToServer = async (message: string) => {
+    try {
+        const response = await fetch(`https://bash10-85-175-194-59.ru.tuna.am/api/send-msg/${room}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                nickname: 'Пользователь',
+                message: message,
+            }),
+        });
+
+        if (!response.ok) {
+            throw new Error('Ошибка при отправке сообщения');
+        }
+
+        console.log('Сообщение отправлено на сервер успешно');
+    } catch (error) {
+        console.error('Ошибка при отправке сообщения на сервер:', error);
+    }
+};
+
+// Объединение отправки сообщения в Centrifuge и на сервер
+const sendMessageWithServer = async () => {
+    if (newMessage.value.trim() !== '') {
+        await centrifuge.publish(room, {
+            sender: 'Вы',
+            message: newMessage.value.trim(),
+        });
+
+        await sendToServer(newMessage.value.trim());
+
+        messages.value.push({ sender: 'Вы', text: newMessage.value.trim() });
+        newMessage.value = '';
+
+        nextTick(() => {
+            scrollChatToBottom();
+        });
+    }
+};
 </script>
 
 <template>
@@ -69,9 +176,9 @@ const closeChat = () => {
     </div>
 
     <div class="message-input-area">
-        <input type="text" v-model="newMessage" @keyup.enter="sendMessage" class="message-input"
+        <input type="text" v-model="newMessage" @keyup.enter="sendMessageWithServer" class="message-input"
             placeholder="Введите сообщение" />
-        <button class="send-button" @click="sendMessage">
+        <button class="send-button" @click="sendMessageWithServer">
             <IconSend />
         </button>
     </div>
@@ -81,7 +188,6 @@ const closeChat = () => {
         <button class="btn-secondary" @click="closeChat">Закрыть</button>
     </div>
 </template>
-
 <style scoped>
 .container {
     max-width: 640px;
@@ -191,8 +297,7 @@ select.form-control {
     flex-direction: column;
     background-color: #fff8f8;
     transition: background-color 0.3s ease;
-    min-height: 200px;
-    max-height: 400px;
+    height: 40vh;
 }
 
 .message-container {
