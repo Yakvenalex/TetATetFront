@@ -21,8 +21,7 @@ const roomKey = ref('');
 const partnerInfo = ref<any>(null);
 const userToken = ref('');
 
-// ID текущего пользователя (замените на реальное получение ID)
-const currentUserId = ref(parseInt(route.query.currentUserId));
+const currentUserId = parseInt(route.query.currentUserId as string);
 
 // Таймер для проверки статуса комнаты
 let statusCheckInterval: number | null = null;
