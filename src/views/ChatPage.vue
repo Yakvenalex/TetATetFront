@@ -3,17 +3,24 @@ import { ref, onMounted, onUnmounted, nextTick } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import IconSend from '@/components/icons/IconSend.vue';
 import { Centrifuge } from 'centrifuge';
+import { useWebApp } from "vue-tg";
+
+const { close } = useWebApp();
 
 const router = useRouter();
 const route = useRoute();
-const token = route.query.token as string;
-const originalRoom = route.query.room as string;
 
+const route_query = route.query;
+
+const token = route_query.token as string;
+const user_id = route_query.user_id as string;
+const sender = route_query.sender;
+
+const originalRoom = route.query.room as string;
 const room = originalRoom.replace('chat_room:', '');
-console.log(token);
-console.log(room);
+
 // Состояния
-const messages = ref<{ sender: string; text: string }[]>([]);
+const messages = ref<{ sender: string; text: string; type?: 'system' | 'user' }[]>([]);
 const newMessage = ref('');
 
 // Инициализация Centrifuge
@@ -23,39 +30,42 @@ const centrifuge = new Centrifuge('wss://mycentrifugo-yakvenalex.amvera.io/conne
 
 let sub: ReturnType<typeof centrifuge.newSubscription>;
 
-// Логирование событий соединения
-centrifuge
-    .on('connecting', (ctx) => {
-        console.log(`Connecting to Centrifuge: ${ctx.code}, ${ctx.reason}`);
-    })
-    .on('connected', (ctx) => {
-        console.log(`Connected to Centrifuge over ${ctx.transport}`);
-    })
-    .on('disconnected', (ctx) => {
-        console.log(`Disconnected from Centrifuge: ${ctx.code}, ${ctx.reason}`);
-    });
+// Функция для отправки системного сообщения
+const sendSystemMessage = async (message: string) => {
+    try {
+        await fetch(`https://nu6fbi-178-155-31-49.ru.tuna.am/api/send-msg/${room}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                sender: 'Система',
+                user_id: 0,
+                message: message,
+            }),
+        });
+    } catch (error) {
+        console.error('Ошибка при отправке системного сообщения:', error);
+    }
+};
 
 // Функция для инициализации подписки
 const initializeSubscription = () => {
     sub = centrifuge.newSubscription(room);
+    sub.on('publication', (ctx) => {
+        const data = JSON.parse(ctx.data);
 
-    sub
-        .on('publication', (ctx) => {
-            const data = ctx.data;
-            receiveMessage(data.sender, data.message);
-            console.log('Received publication:', data);
-        })
-        .on('subscribing', (ctx) => {
-            console.log(`Subscribing to channel ${room}: ${ctx.code}, ${ctx.reason}`);
-        })
-        .on('subscribed', (ctx) => {
-            console.log(`Subscribed to channel ${room}:`, ctx);
-        })
-        .on('unsubscribed', (ctx) => {
-            console.log(`Unsubscribed from channel ${room}: ${ctx.code}, ${ctx.reason}`);
-        });
+        // Проверяем, что сообщение не от текущего пользователя
+        if (data.user_id !== parseInt(user_id)) {
+            receiveMessage(data.sender, data.message, data.sender === 'Система' ? 'system' : 'user');
+        }
 
+        console.log('Received publication:', data);
+    });
     sub.subscribe();
+
+    // Отправляем системное сообщение о подключении
+    sendSystemMessage(`Пользователь ${sender} присоединился к чату`);
 };
 
 // Подключение к Centrifugo и инициализация подписки при монтировании компонента
@@ -66,32 +76,54 @@ onMounted(() => {
 
 // Отключение от Centrifugo и отписка от канала при уничтожении компонента
 onUnmounted(() => {
+    // Отправляем системное сообщение о выходе
+    sendSystemMessage(`Пользователь ${sender} покинул чат`);
+
     if (sub) {
         sub.unsubscribe();
     }
     centrifuge.disconnect();
 });
 
-// Функция отправки сообщения
-const sendMessage = async () => {
+// Функция отправки сообщения через сервер
+const sendMessageWithServer = async () => {
     if (newMessage.value.trim() !== '') {
-        await centrifuge.publish(room, {
-            sender: 'Вы',
-            message: newMessage.value.trim(),
-        });
+        try {
+            const response = await fetch(`https://nu6fbi-178-155-31-49.ru.tuna.am/api/send-msg/${room}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    sender: sender,
+                    user_id: parseInt(user_id),
+                    message: newMessage.value.trim(),
+                }),
+            });
 
-        messages.value.push({ sender: 'Вы', text: newMessage.value.trim() });
-        newMessage.value = '';
+            if (!response.ok) {
+                throw new Error('Ошибка при отправке сообщения');
+            }
 
-        nextTick(() => {
-            scrollChatToBottom();
-        });
+            // Добавляем сообщение как "Вы" только после успешной отправки
+            messages.value.push({ sender: 'Вы', text: newMessage.value.trim(), type: 'user' });
+            newMessage.value = '';
+
+            nextTick(() => {
+                scrollChatToBottom();
+            });
+
+            console.log('Сообщение отправлено на сервер успешно');
+        } catch (error) {
+            console.error('Ошибка при отправке сообщения на сервер:', error);
+            alert('Не удалось отправить сообщение. Проверьте подключение к интернету.');
+        }
     }
 };
 
 // Функция получения сообщения
-const receiveMessage = (sender: string, message: string) => {
-    messages.value.push({ sender, text: message });
+const receiveMessage = (sender: string, message: string, type: 'system' | 'user' = 'user') => {
+    messages.value.push({ sender, text: message, type });
 
     nextTick(() => {
         scrollChatToBottom();
@@ -106,86 +138,68 @@ const scrollChatToBottom = () => {
     }
 };
 
+// Очистка комнаты
+const clearRoom = async () => {
+    try {
+        await fetch(`https://nu6fbi-178-155-31-49.ru.tuna.am/api/clear_room/${originalRoom}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+        });
+    } catch (error) {
+        console.error('Ошибка при очистке комнаты:', error);
+    }
+};
+
 // Функция смены собеседника
-const changeInterlocutor = () => {
-    router.push('/');
+const changeInterlocutor = async () => {
+    await clearRoom();
+    router.push({
+        path: '/',
+        query: {
+            user_id: user_id,
+            sender: sender,
+        }
+    });
 };
 
 // Функция закрытия чата
-const closeChat = () => {
-    alert('Чат закрыт');
-};
-
-// Отправка сообщения на сервер (если необходимо)
-const sendToServer = async (message: string) => {
-    try {
-        const response = await fetch(`https://bash10-85-175-194-59.ru.tuna.am/api/send-msg/${room}`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                nickname: 'Пользователь',
-                message: message,
-            }),
-        });
-
-        if (!response.ok) {
-            throw new Error('Ошибка при отправке сообщения');
-        }
-
-        console.log('Сообщение отправлено на сервер успешно');
-    } catch (error) {
-        console.error('Ошибка при отправке сообщения на сервер:', error);
-    }
-};
-
-// Объединение отправки сообщения в Centrifuge и на сервер
-const sendMessageWithServer = async () => {
-    if (newMessage.value.trim() !== '') {
-        await centrifuge.publish(room, {
-            sender: 'Вы',
-            message: newMessage.value.trim(),
-        });
-
-        await sendToServer(newMessage.value.trim());
-
-        messages.value.push({ sender: 'Вы', text: newMessage.value.trim() });
-        newMessage.value = '';
-
-        nextTick(() => {
-            scrollChatToBottom();
-        });
-    }
+const closeChat = async () => {
+    await clearRoom();
+    close();
 };
 </script>
 
 <template>
-    <h1 class="text-3xl font-bold mb-8 text-center text-red-600">Чат с Собеседником</h1>
+    <div class="chat-wrapper">
+        <h1>Чат с Собеседником</h1>
 
-    <div id="chatContainer" class="chat-container">
-        <div v-for="(message, index) in messages" :key="index"
-            :class="['message-container', message.sender === 'Вы' ? 'sent' : 'received']">
-            <div class="message-sender">
-                {{ message.sender }}:
-            </div>
-            <div class="message">
-                {{ message.text }}
+        <div id="chatContainer" class="chat-container">
+            <div v-for="(message, index) in messages" :key="index" :class="[
+                'message-container',
+                message.type === 'system' ? 'system' :
+                    (message.sender === 'Вы' ? 'sent' : 'received')
+            ]">
+                <div class="message-sender" :class="{ 'system-sender': message.type === 'system' }">
+                    {{ message.sender }}:
+                </div>
+                <div class="message">
+                    {{ message.text }}
+                </div>
             </div>
         </div>
-    </div>
 
-    <div class="message-input-area">
-        <input type="text" v-model="newMessage" @keyup.enter="sendMessageWithServer" class="message-input"
-            placeholder="Введите сообщение" />
-        <button class="send-button" @click="sendMessageWithServer">
-            <IconSend />
-        </button>
-    </div>
+        <div class="message-input-area">
+            <input type="text" v-model="newMessage" @keyup.enter="sendMessageWithServer" class="message-input"
+                placeholder="Введите сообщение" />
+            <button class="send-button" @click="sendMessageWithServer">
+                <IconSend />
+            </button>
+        </div>
 
-    <div class="chat-buttons">
-        <button class="btn-secondary" @click="changeInterlocutor">Другой собеседник</button>
-        <button class="btn-secondary" @click="closeChat">Закрыть</button>
+        <div class="chat-buttons">
+            <button class="btn-secondary" @click="changeInterlocutor">Другой собеседник</button>
+            <button class="btn-secondary" @click="closeChat">Закрыть</button>
+        </div>
     </div>
 </template>
 <style scoped>
@@ -457,5 +471,27 @@ select.form-control {
         min-width: 34px;
         height: 34px;
     }
+}
+
+.chat-wrapper {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
+.chat-container {
+    flex-grow: 1;
+    overflow-y: auto;
+    padding: 10px;
+}
+
+.message-container.system {
+    text-align: center;
+    color: #888;
+    font-style: italic;
+}
+
+.system-sender {
+    display: none;
 }
 </style>

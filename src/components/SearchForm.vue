@@ -41,7 +41,7 @@ async function findPartner() {
     error.value = '';
 
     try {
-        const response = await fetch('https://bash10-85-175-194-59.ru.tuna.am/api/find-partner', {
+        const response = await fetch('https://nu6fbi-178-155-31-49.ru.tuna.am/api/find-partner', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',

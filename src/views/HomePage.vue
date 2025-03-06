@@ -4,7 +4,10 @@ import SearchForm from '@/components/SearchForm.vue';
 import LoadingIndicator from '@/components/LoadingIndicator.vue';
 import ActionButtons from '@/components/ActionButtons.vue';
 import { useRouter, useRoute } from 'vue-router'
+import { useWebApp } from "vue-tg";
 
+
+const { close } = useWebApp();
 const router = useRouter()
 const route = useRoute()
 
@@ -21,14 +24,14 @@ const roomKey = ref('');
 const partnerInfo = ref<any>(null);
 const userToken = ref('');
 
-const currentUserId = parseInt(route.query.currentUserId as string);
+const currentUserId = parseInt(route.query.user_id as string);
+const sender = route.query.sender as string;
 
 // Таймер для проверки статуса комнаты
 let statusCheckInterval: number | null = null;
 
 // Функция для поиска собеседника (будет вызываться из SearchForm)
 const findCompanion = () => {
-    // Форма уже сама отправляет запрос, поэтому просто показываем загрузку
     isLoading.value = true;
     searchStatus.value = 'searching';
 };
@@ -45,7 +48,12 @@ const handlePartnerFound = (data: any) => {
     // Переходим в комнату чата
     router.push({
         path: '/chat',
-        query: { room: roomKey.value, token: userToken.value }
+        query: {
+            room: roomKey.value,
+            token: userToken.value,
+            user_id: currentUserId,
+            sender: sender,
+        }
     });
 
     // Очищаем интервал проверки статуса, если он был
@@ -68,16 +76,15 @@ const handleWaiting = (data: any) => {
 const startStatusCheck = () => {
     // Очищаем предыдущий интервал, если он существует
     clearStatusCheckInterval();
-
     // Устанавливаем новый интервал
-    statusCheckInterval = window.setInterval(checkRoomStatus, 5000); // Проверка каждые 5 секунд
+    statusCheckInterval = window.setInterval(checkRoomStatus, 5000); // Проверка каждые 5 секунды
 };
 
 // Функция для проверки статуса комнаты
 const checkRoomStatus = async () => {
     try {
-        // Здесь должен быть запрос к API для проверки статуса комнаты
-        const response = await fetch(`https://bash10-85-175-194-59.ru.tuna.am/api/room-status?key=${roomKey.value}&user_id=${currentUserId.value}`);
+        // Запрос к API для проверки статуса комнаты
+        const response = await fetch(`https://nu6fbi-178-155-31-49.ru.tuna.am/api/room-status?key=${roomKey.value}&user_id=${currentUserId}`);
 
         if (!response.ok) {
             throw new Error(`Ошибка: ${response.status}`);
@@ -124,27 +131,19 @@ const closeSearch = () => {
     if (roomKey.value) {
         cancelSearch();
     }
+
+    close();
+
 };
 
 // Отмена поиска
 const cancelSearch = async () => {
-    try {
-        await fetch(`https://bash10-85-175-194-59.ru.tuna.am/api/cancel-search`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                room_key: roomKey.value,
-                token: userToken.value
-            })
-        });
-    } catch (error) {
-        console.error('Ошибка при отмене поиска:', error);
-    } finally {
-        roomKey.value = '';
-        userToken.value = '';
-    }
+    await fetch(`https://nu6fbi-178-155-31-49.ru.tuna.am/api/clear_room/${roomKey.value}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+    });
+    roomKey.value = '';
+    userToken.value = '';
 };
 
 // Очистка при размонтировании компонента
@@ -171,8 +170,6 @@ onMounted(() => {
             <ActionButtons primary-text="Отменить" secondary-text="Закрыть" @primary-click="closeSearch"
                 @secondary-click="closeSearch" />
         </LoadingIndicator>
-
-        <router-view />
     </div>
 </template>
 
