@@ -33,7 +33,7 @@ let sub: ReturnType<typeof centrifuge.newSubscription>;
 // Функция для отправки системного сообщения
 const sendSystemMessage = async (message: string) => {
     try {
-        await fetch(`https://nu6fbi-178-155-31-49.ru.tuna.am/api/send-msg/${room}`, {
+        await fetch(`https://87g03r-85-175-194-59.ru.tuna.am/api/send-msg/${room}`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -89,7 +89,7 @@ onUnmounted(() => {
 const sendMessageWithServer = async () => {
     if (newMessage.value.trim() !== '') {
         try {
-            const response = await fetch(`https://nu6fbi-178-155-31-49.ru.tuna.am/api/send-msg/${room}`, {
+            const response = await fetch(`https://87g03r-85-175-194-59.ru.tuna.am/api/send-msg/${room}`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -141,7 +141,7 @@ const scrollChatToBottom = () => {
 // Очистка комнаты
 const clearRoom = async () => {
     try {
-        await fetch(`https://nu6fbi-178-155-31-49.ru.tuna.am/api/clear_room/${originalRoom}`, {
+        await fetch(`https://87g03r-85-175-194-59.ru.tuna.am/api/clear_room/${originalRoom}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
         });

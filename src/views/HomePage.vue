@@ -77,14 +77,14 @@ const startStatusCheck = () => {
     // Очищаем предыдущий интервал, если он существует
     clearStatusCheckInterval();
     // Устанавливаем новый интервал
-    statusCheckInterval = window.setInterval(checkRoomStatus, 5000); // Проверка каждые 5 секунды
+    statusCheckInterval = window.setInterval(checkRoomStatus, 1000); // Проверка каждую секунду
 };
 
 // Функция для проверки статуса комнаты
 const checkRoomStatus = async () => {
     try {
         // Запрос к API для проверки статуса комнаты
-        const response = await fetch(`https://nu6fbi-178-155-31-49.ru.tuna.am/api/room-status?key=${roomKey.value}&user_id=${currentUserId}`);
+        const response = await fetch(`https://87g03r-85-175-194-59.ru.tuna.am/api/room-status?key=${roomKey.value}&user_id=${currentUserId}`);
 
         if (!response.ok) {
             throw new Error(`Ошибка: ${response.status}`);
@@ -138,7 +138,7 @@ const closeSearch = () => {
 
 // Отмена поиска
 const cancelSearch = async () => {
-    await fetch(`https://nu6fbi-178-155-31-49.ru.tuna.am/api/clear_room/${roomKey.value}`, {
+    await fetch(`https://87g03r-85-175-194-59.ru.tuna.am/api/clear_room/${roomKey.value}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
     });
