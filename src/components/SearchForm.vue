@@ -1,8 +1,7 @@
 <script setup lang="ts">
+import { findPartner } from '@/services/api'
+import { ref } from 'vue'
 import ActionButtons from './ActionButtons.vue'
-import { ref, inject } from 'vue'
-import { BASE_SITE } from '@/services/api'
-import { findPartner, type PartnerSearchResponse } from '@/services/api'
 
 const props = defineProps({
   gender: {

@@ -4,9 +4,9 @@ import SearchForm from '@/components/SearchForm.vue'
 import LoadingIndicator from '@/components/LoadingIndicator.vue'
 import ActionButtons from '@/components/ActionButtons.vue'
 import { useRouter, useRoute } from 'vue-router'
-import { useWebApp } from 'vue-tg'
+import { useMiniApp } from 'vue-tg'
 import { BASE_SITE } from '@/services/api'
-const { close } = useWebApp()
+const { close } = useMiniApp()
 const router = useRouter()
 const route = useRoute()
 

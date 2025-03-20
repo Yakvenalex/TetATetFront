@@ -1,12 +1,28 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { onMounted, ref } from 'vue'
+import { useMiniApp } from 'vue-tg'
 import AppLoader from './components/AppLoader.vue'
-
 const isLoading = ref(true)
-
 const handleLoaded = () => {
   isLoading.value = false
 }
+
+const miniApp = useMiniApp()
+
+const initializeTelegramAds = () => {
+  miniApp.ready()
+  // @ts-ignore
+  window.TelegramAdsController = new TelegramAdsController()
+  // @ts-ignore
+  window.TelegramAdsController.initialize({
+    pubId: '965290',
+    appId: '1835',
+  })
+}
+
+onMounted(() => {
+  initializeTelegramAds()
+})
 </script>
 
 <template>

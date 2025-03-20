@@ -1,16 +1,16 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, nextTick, inject } from 'vue'
-import { useRouter, useRoute } from 'vue-router'
 import IconSend from '@/components/icons/IconSend.vue'
-import { Centrifuge } from 'centrifuge'
-import { useWebApp } from 'vue-tg'
 import {
+  BASE_SITE,
+  CENTRIFUGO_URL,
   clearRoom,
   sendSystemMessage,
-  CENTRIFUGO_URL,
-  BASE_SITE,
 } from '@/services/api'
-const { close } = useWebApp()
+import { Centrifuge } from 'centrifuge'
+import { nextTick, onMounted, onUnmounted, ref, computed } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import { useMiniApp } from 'vue-tg'
+const { close } = useMiniApp()
 
 const router = useRouter()
 const route = useRoute()
@@ -24,11 +24,21 @@ const sender = route_query.sender
 const originalRoom = route.query.room as string
 const room = originalRoom.replace('chat_room:', '')
 
+// Получаем имя собеседника
+const interlocutorName = computed(() => {
+  // Если есть сообщения от собеседника, берем имя из первого такого сообщения
+  const interlocutorMessage = messages.value.find(
+    (msg) => msg.sender !== 'Вы' && msg.sender !== 'Система'
+  )
+  return interlocutorMessage?.sender || 'собеседником'
+})
+
 // Состояния
 const messages = ref<
   { sender: string; text: string; type?: 'system' | 'user' }[]
 >([])
 const newMessage = ref('')
+const inputRef = ref(null)
 
 // Инициализация Centrifuge
 const centrifuge = new Centrifuge(CENTRIFUGO_URL, {
@@ -68,6 +78,16 @@ const initializeSubscription = () => {
 onMounted(() => {
   centrifuge.connect()
   initializeSubscription()
+
+  // Добавляем обработчик для скрытия клавиатуры при скролле
+  const chatContainer = document.getElementById('chatContainer')
+  if (chatContainer) {
+    chatContainer.addEventListener('touchstart', () => {
+      if (document.activeElement instanceof HTMLElement) {
+        document.activeElement.blur()
+      }
+    })
+  }
 })
 
 // Отключение от Centrifugo и отписка от канала при уничтожении компонента
@@ -83,6 +103,12 @@ onUnmounted(() => {
     sub.unsubscribe()
   }
   centrifuge.disconnect()
+
+  // Удаляем обработчик
+  const chatContainer = document.getElementById('chatContainer')
+  if (chatContainer) {
+    chatContainer.removeEventListener('touchstart', () => {})
+  }
 })
 
 // Функция отправки сообщения через сервер
@@ -112,6 +138,11 @@ const sendMessageWithServer = async () => {
         type: 'user',
       })
       newMessage.value = ''
+
+      // Скрываем клавиатуру после отправки сообщения
+      if (document.activeElement instanceof HTMLElement) {
+        document.activeElement.blur()
+      }
 
       nextTick(() => {
         scrollChatToBottom()
@@ -175,7 +206,23 @@ const closeChat = async () => {
 
 <template>
   <div class="chat-wrapper">
-    <h1>Чат с Собеседником</h1>
+    <div class="chat-header">
+      <button
+        class="header-button new-button"
+        @click="changeInterlocutor"
+        title="Новый собеседник"
+      >
+        <i class="icon-change">↺</i> Новый
+      </button>
+      <div class="chat-title">Чат с {{ interlocutorName }}</div>
+      <button
+        class="header-button close-button"
+        @click="closeChat"
+        title="Закрыть"
+      >
+        <i class="icon-close">✕</i> Закрыть
+      </button>
+    </div>
 
     <div id="chatContainer" class="chat-container">
       <div
@@ -209,124 +256,100 @@ const closeChat = async () => {
         @keyup.enter="sendMessageWithServer"
         class="message-input"
         placeholder="Введите сообщение"
+        ref="inputRef"
       />
       <button class="send-button" @click="sendMessageWithServer">
         <IconSend />
       </button>
     </div>
-
-    <div class="chat-buttons">
-      <button class="btn-secondary" @click="changeInterlocutor">
-        Другой собеседник
-      </button>
-      <button class="btn-secondary" @click="closeChat">Закрыть</button>
-    </div>
   </div>
 </template>
 <style scoped>
-.container {
-  max-width: 640px;
-  margin: 2rem auto;
-  padding: 1.5rem;
-  background-color: #fff;
-  border-radius: 1.25rem;
-  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+.chat-header {
   display: flex;
-  flex-direction: column;
-  height: 75vh;
-  transition: background-color 0.3s ease;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.75rem;
+  padding: 0.5rem 0;
+  border-bottom: 2px solid #ef5350;
 }
 
-.btn-primary {
-  background-color: #e53935;
-  color: white;
-  padding: 0.875rem 1.75rem;
-  border-radius: 0.5rem;
-  transition: background-color 0.3s ease, transform 0.2s ease,
-    box-shadow 0.3s ease;
-  display: inline-block;
-  width: 100%;
+.chat-title {
+  font-weight: bold;
+  color: #e53935;
+  font-size: 1.1rem;
   text-align: center;
-  font-weight: 500;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-  margin-bottom: 1rem;
-  cursor: pointer;
+  flex-grow: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding: 0 0.5rem;
 }
 
-.btn-primary:hover {
-  background-color: #d32f2f;
-  transform: translateY(-2px);
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
-}
-
-.btn-secondary {
+.header-button {
+  display: flex;
+  align-items: center;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.5rem;
   background-color: #ef5350;
   color: white;
-  padding: 0.75rem 1.5rem;
-  border-radius: 0.5rem;
-  transition: background-color 0.3s ease, transform 0.2s ease,
-    box-shadow 0.3s ease;
-  display: inline-block;
-  width: 48%;
-  text-align: center;
+  font-size: 0.9rem;
   font-weight: 500;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  margin-bottom: 1rem;
   cursor: pointer;
+  transition: background-color 0.3s ease, transform 0.2s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+  border: none;
 }
 
-.btn-secondary:hover {
+.header-button:hover {
   background-color: #e53935;
   transform: translateY(-1px);
-  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
 }
 
-.form-control {
-  width: 100%;
-  padding: 0.875rem;
-  margin-bottom: 1.25rem;
-  border: 2px solid #ef5350;
-  border-radius: 0.75rem;
-  font-size: 1rem;
-  color: #424242;
-  transition: border-color 0.3s ease, box-shadow 0.3s ease;
+.header-button i {
+  margin-right: 0.25rem;
+  font-style: normal;
+  font-weight: bold;
 }
 
-.form-control:focus {
-  outline: none;
-  border-color: #e53935;
-  box-shadow: 0 0 0 3px rgba(229, 57, 53, 0.25);
-}
-
-label {
-  display: block;
-  margin-bottom: 0.625rem;
-  color: #e53935;
-  font-weight: 500;
-  font-size: 1rem;
-}
-
-select.form-control {
-  appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath fill='%23e53935' d='M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 0.875rem top 50%;
-  background-size: 1.25rem auto;
-}
-
-.age-range {
+.action-button {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
   display: flex;
-  gap: 1.25rem;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  cursor: pointer;
+  transition: background-color 0.3s ease, transform 0.2s ease;
+  font-size: 1.2rem;
+  color: white;
 }
 
-.age-range input {
-  width: 50%;
+.change-button {
+  background-color: #ef5350;
+}
+
+.close-button {
+  background-color: #e53935;
+}
+
+.action-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.3);
+}
+
+.icon-change,
+.icon-close {
+  font-style: normal;
+  font-weight: bold;
 }
 
 .chat-container {
   flex-grow: 1;
   overflow-y: auto;
-  margin-bottom: 1.25rem;
+  margin-bottom: 1rem;
   padding: 0.75rem;
   border: 1px solid #ef5350;
   border-radius: 0.75rem;
@@ -334,7 +357,43 @@ select.form-control {
   flex-direction: column;
   background-color: #fff8f8;
   transition: background-color 0.3s ease;
-  height: 40vh;
+  height: calc(100vh - 200px);
+  min-height: 40vh;
+  max-height: 70vh;
+}
+
+@media screen and (max-width: 768px) {
+  .chat-container {
+    height: calc(100vh - 180px);
+  }
+}
+
+@media screen and (max-width: 480px) {
+  .chat-container {
+    height: calc(100vh - 160px);
+    padding: 0.5rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .chat-header {
+    padding: 0.4rem 0;
+    margin-bottom: 0.5rem;
+  }
+
+  .header-button {
+    padding: 0.4rem 0.6rem;
+    font-size: 0.8rem;
+  }
+
+  .chat-title {
+    font-size: 0.9rem;
+  }
+}
+
+@media screen and (max-height: 600px) {
+  .chat-container {
+    min-height: 30vh;
+  }
 }
 
 .message-container {
@@ -384,12 +443,14 @@ select.form-control {
 .message-input-area {
   display: flex;
   gap: 0.75rem;
-  margin-bottom: 1rem;
+  margin-bottom: 0.75rem;
+  position: relative;
+  z-index: 10;
 }
 
 .message-input {
   flex-grow: 1;
-  padding: 0.875rem;
+  padding: 1rem;
   border: 2px solid #ef5350;
   border-radius: 0.75rem;
   font-size: 1rem;
@@ -404,12 +465,12 @@ select.form-control {
 }
 
 .send-button {
-  min-width: 44px;
-  height: 44px;
+  min-width: 48px;
+  height: 48px;
   background-color: #e53935;
   color: white;
   padding: 0.5rem;
-  border-radius: 0.5rem;
+  border-radius: 0.75rem;
   transition: background-color 0.3s ease, transform 0.2s ease,
     box-shadow 0.3s ease;
   display: flex;
@@ -418,6 +479,7 @@ select.form-control {
   font-weight: 500;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
   cursor: pointer;
+  border: none;
 }
 
 .send-button:hover {
@@ -426,19 +488,8 @@ select.form-control {
   box-shadow: 0 3px 6px rgba(0, 0, 0, 0.3);
 }
 
-.chat-buttons {
-  display: flex;
-  justify-content: space-between;
-  margin-top: 1rem;
-}
-
 /* Адаптивные стили для мобильных устройств */
 @media screen and (max-width: 640px) {
-  h1 {
-    font-size: 1.5rem;
-    margin-bottom: 1rem;
-  }
-
   .chat-container {
     max-height: 300px;
     min-height: 150px;
@@ -455,45 +506,31 @@ select.form-control {
   }
 
   .message-input {
-    padding: 0.6rem;
+    padding: 0.8rem;
     font-size: 0.9rem;
   }
 
   .send-button {
-    min-width: 38px;
-    height: 38px;
+    min-width: 42px;
+    height: 42px;
     padding: 0.3rem;
-  }
-
-  .chat-buttons {
-    flex-direction: column;
-    gap: 0.5rem;
-  }
-
-  .btn-secondary {
-    width: 100%;
-    padding: 0.5rem 1rem;
-    margin-bottom: 0.5rem;
   }
 }
 
 /* Дополнительные стили для очень маленьких экранов */
 @media screen and (max-width: 320px) {
-  .container {
-    padding: 1rem;
-  }
-
-  h1 {
-    font-size: 1.25rem;
-  }
-
   .message-input {
-    padding: 0.5rem;
+    padding: 0.6rem;
   }
 
   .send-button {
-    min-width: 34px;
-    height: 34px;
+    min-width: 38px;
+    height: 38px;
+  }
+
+  .header-button {
+    padding: 0.3rem 0.5rem;
+    font-size: 0.75rem;
   }
 }
 
@@ -501,12 +538,7 @@ select.form-control {
   display: flex;
   flex-direction: column;
   height: 100%;
-}
-
-.chat-container {
-  flex-grow: 1;
-  overflow-y: auto;
-  padding: 10px;
+  padding-bottom: env(safe-area-inset-bottom, 0);
 }
 
 .message-container.system {
