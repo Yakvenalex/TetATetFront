@@ -5,11 +5,10 @@ import LoadingIndicator from '@/components/LoadingIndicator.vue'
 import ActionButtons from '@/components/ActionButtons.vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useWebApp } from 'vue-tg'
+import { BASE_SITE } from '@/services/api'
 const { close } = useWebApp()
 const router = useRouter()
 const route = useRoute()
-
-const BASE_SITE = inject('BASE_SITE') as string
 
 // Состояния формы поиска
 const gender = ref('any')

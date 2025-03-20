@@ -2,8 +2,7 @@
 // @ts-ignore
 import ActionButtons from './ActionButtons.vue'
 import { ref, inject } from 'vue'
-
-const BASE_SITE = inject('BASE_SITE') as string
+import { BASE_SITE } from '@/services/api'
 
 const props = defineProps({
   gender: {

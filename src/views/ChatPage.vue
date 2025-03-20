@@ -4,14 +4,16 @@ import { useRouter, useRoute } from 'vue-router'
 import IconSend from '@/components/icons/IconSend.vue'
 import { Centrifuge } from 'centrifuge'
 import { useWebApp } from 'vue-tg'
-
+import {
+  clearRoom,
+  sendSystemMessage,
+  CENTRIFUGO_URL,
+  BASE_SITE,
+} from '@/services/api'
 const { close } = useWebApp()
 
 const router = useRouter()
 const route = useRoute()
-
-const BASE_SITE = inject('BASE_SITE') as string
-const CENTRIFUGO_URL = inject('CENTRIFUGO_URL') as string
 
 const route_query = route.query
 
@@ -35,25 +37,6 @@ const centrifuge = new Centrifuge(CENTRIFUGO_URL, {
 
 let sub: ReturnType<typeof centrifuge.newSubscription>
 
-// Функция для отправки системного сообщения
-const sendSystemMessage = async (message: string) => {
-  try {
-    await fetch(`${BASE_SITE}/api/send-msg/${room}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        sender: 'Система',
-        user_id: 0,
-        message: message,
-      }),
-    })
-  } catch (error) {
-    console.error('Ошибка при отправке системного сообщения:', error)
-  }
-}
-
 // Функция для инициализации подписки
 const initializeSubscription = () => {
   sub = centrifuge.newSubscription(room)
@@ -74,7 +57,11 @@ const initializeSubscription = () => {
   sub.subscribe()
 
   // Отправляем системное сообщение о подключении
-  sendSystemMessage(`Пользователь ${sender} присоединился к чату`)
+  sendSystemMessage(
+    `Пользователь ${sender} присоединился к чату`,
+    room,
+    parseInt(user_id)
+  )
 }
 
 // Подключение к Centrifugo и инициализация подписки при монтировании компонента
@@ -86,7 +73,11 @@ onMounted(() => {
 // Отключение от Centrifugo и отписка от канала при уничтожении компонента
 onUnmounted(() => {
   // Отправляем системное сообщение о выходе
-  sendSystemMessage(`Пользователь ${sender} покинул чат`)
+  sendSystemMessage(
+    `Пользователь ${sender} покинул чат`,
+    room,
+    parseInt(user_id)
+  )
 
   if (sub) {
     sub.unsubscribe()
@@ -157,21 +148,9 @@ const scrollChatToBottom = () => {
   }
 }
 
-// Очистка комнаты
-const clearRoom = async () => {
-  try {
-    await fetch(`${BASE_SITE}/api/clear_room/${originalRoom}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-    })
-  } catch (error) {
-    console.error('Ошибка при очистке комнаты:', error)
-  }
-}
-
 // Функция смены собеседника
 const changeInterlocutor = async () => {
-  await clearRoom()
+  await clearRoom(originalRoom)
   router.push({
     path: '/',
     query: {
@@ -184,8 +163,12 @@ const changeInterlocutor = async () => {
 // Функция закрытия чата
 const closeChat = async () => {
   // Отправляем системное сообщение о выходе перед закрытием
-  await sendSystemMessage(`Пользователь ${sender} покинул чат`)
-  await clearRoom()
+  await sendSystemMessage(
+    `Пользователь ${sender} покинул чат`,
+    room,
+    parseInt(user_id)
+  )
+  await clearRoom(originalRoom)
   close()
 }
 </script>
