@@ -183,6 +183,8 @@ const changeInterlocutor = async () => {
 
 // Функция закрытия чата
 const closeChat = async () => {
+  // Отправляем системное сообщение о выходе перед закрытием
+  await sendSystemMessage(`Пользователь ${sender} покинул чат`)
   await clearRoom()
   close()
 }
