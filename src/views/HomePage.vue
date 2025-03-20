@@ -12,9 +12,9 @@ const route = useRoute()
 const BASE_SITE = inject('BASE_SITE') as string
 
 // Состояния формы поиска
-const gender = ref('')
-const ageFrom = ref<number | null>(null)
-const ageTo = ref<number | null>(null)
+const gender = ref('any')
+const ageFrom = ref<number | null>(18)
+const ageTo = ref<number | null>(120)
 
 // Состояния процесса поиска
 const isLoading = ref(false)
@@ -139,12 +139,22 @@ const closeSearch = () => {
 
 // Отмена поиска
 const cancelSearch = async () => {
-  await fetch(`${BASE_SITE}/api/clear_room/${roomKey.value}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-  })
-  roomKey.value = ''
-  userToken.value = ''
+  try {
+    await fetch(`${BASE_SITE}/api/clear_room/${roomKey.value}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+    })
+    // Сбрасываем все состояния
+    roomKey.value = ''
+    userToken.value = ''
+    isLoading.value = false
+    searchStatus.value = 'idle'
+    searchError.value = ''
+    clearStatusCheckInterval()
+  } catch (error) {
+    console.error('Ошибка при отмене поиска:', error)
+    searchError.value = 'Произошла ошибка при отмене поиска'
+  }
 }
 
 // Очистка при размонтировании компонента
@@ -184,7 +194,7 @@ onMounted(() => {
       <ActionButtons
         primary-text="Отменить"
         secondary-text="Закрыть"
-        @primary-click="closeSearch"
+        @primary-click="cancelSearch"
         @secondary-click="closeSearch"
       />
     </LoadingIndicator>

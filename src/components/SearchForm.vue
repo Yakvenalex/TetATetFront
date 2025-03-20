@@ -109,9 +109,9 @@ async function findPartner() {
         class="form-control"
         :disabled="isLoading"
       >
-        <option value="">Не указывать</option>
-        <option value="male">Мужской</option>
-        <option value="female">Женский</option>
+        <option value="any">Не указывать</option>
+        <option value="man">Мужской</option>
+        <option value="woman">Женский</option>
       </select>
     </div>
 
