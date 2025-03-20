@@ -6,6 +6,25 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <title>Chat Tet@Tet</title>
+    <!-- Скрипт рекламы -->
+    <script src="https://richinfo.co/richpartners/telegram/js/tg-ob.js"></script>
+    <script>
+      window.addEventListener('load', function () {
+        try {
+          if (typeof TelegramAdsController === 'undefined') {
+            console.error('TelegramAdsController не загружен')
+            return
+          }
+          window.TelegramAdsController = new TelegramAdsController()
+          window.TelegramAdsController.initialize({
+            pubId: '965290',
+            appId: '1833',
+          })
+        } catch (error) {
+          console.error('Ошибка при инициализации рекламы:', error)
+        }
+      })
+    </script>
   </head>
   <body>
     <div id="app"></div>

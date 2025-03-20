@@ -1,5 +1,4 @@
 <script setup lang="ts">
-// @ts-ignore
 import ActionButtons from './ActionButtons.vue'
 import { ref, inject } from 'vue'
 import { BASE_SITE } from '@/services/api'

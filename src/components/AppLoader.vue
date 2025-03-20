@@ -7,14 +7,14 @@ const progress = ref(0)
 onMounted(() => {
   const interval = setInterval(() => {
     if (progress.value < 100) {
-      progress.value += 2
+      progress.value += 5
     } else {
       clearInterval(interval)
       setTimeout(() => {
         emit('loaded')
-      }, 500)
+      }, 200)
     }
-  }, 50)
+  }, 20)
 })
 </script>
 
