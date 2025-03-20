@@ -41,3 +41,45 @@ export const sendSystemMessage = async (
     console.error('Ошибка при отправке системного сообщения:', error)
   }
 }
+
+export interface PartnerSearchParams {
+  id: number
+  gender: string
+  age_from: number | null
+  age_to: number | null
+}
+
+export interface PartnerSearchResponse {
+  status: 'matched' | 'waiting'
+  room_key?: string
+  partner?: {
+    id: number
+    name: string
+    // добавьте другие поля партнера по необходимости
+  }
+  message?: string
+  token?: string
+}
+
+export const findPartner = async (
+  params: PartnerSearchParams
+): Promise<PartnerSearchResponse> => {
+  try {
+    const response = await fetch(`${BASE_SITE}/api/find-partner`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(params),
+    })
+
+    if (!response.ok) {
+      throw new Error(`Ошибка: ${response.status}`)
+    }
+
+    return await response.json()
+  } catch (error) {
+    console.error('Ошибка при поиске партнера:', error)
+    throw error
+  }
+}
